@@ -69,6 +69,8 @@ app.use('/', express.static(path.join(__dirname, '../frontend')));
 app.get('/admin/login', (req, res) => res.sendFile(path.join(__dirname, '../frontend/login.html')));
 app.get('/admin', requireAdminAuth, (req, res) => res.sendFile(path.join(__dirname, '../frontend/admin.html')));
 app.get('/mod-panel-x7k9m2n8p4q1', requireAdminAuth, (req, res) => res.sendFile(path.join(__dirname, '../frontend/moderation.html')));
+// Standalone leaderboard page
+app.get('/leaderboard', (req, res) => res.sendFile(path.join(__dirname, '../frontend/leaderboard.html')));
 
 // Health / status
 app.get('/health', (req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
@@ -308,7 +310,7 @@ async function setupMenuButton() {
     if (!BOT_TOKEN || BOT_TOKEN === 'YOUR_BOT_TOKEN_HERE') return { success: false, error: 'Bot token not configured' };
     const miniAppUrl = process.env.WEB_APP_URL || process.env.NEXT_PUBLIC_URL || 'https://example.com';
     const resp = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setChatMenuButton`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ menu_button: { type: 'web_app', text: '🎩 Hat Mini App', web_app: { url: miniAppUrl } } })
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ menu_button: { type: 'web_app', text: '🟦 Hat Mini App', web_app: { url: miniAppUrl } } })
     });
     const json = await resp.json();
     return json.ok ? { success: true } : { success: false, error: json.description };
@@ -319,40 +321,62 @@ app.post('/webhook/telegram', async (req, res) => {
   try {
     const update = req.body;
     if (update.message) await handleBotMessage(update.message);
+    if (update.callback_query) {
+      // No-op for now
+    }
     res.status(200).json({ ok: true });
   } catch (e) { res.status(500).json({ error: 'Webhook processing failed' }); }
 });
 
-async function handleBotMessage(message) {
-  const chatId = message.chat.id;
-  const text = message.text || '';
-  const chatType = message.chat.type; // private|group|supergroup|channel
-  if (!text.startsWith('/')) return;
-
-  const fullCommand = text.split(' ')[0].toLowerCase();
-  let command = fullCommand;
-  if (fullCommand.includes('@')) command = fullCommand.split('@')[0];
-
-  const appUrl = process.env.WEB_APP_URL || process.env.NEXT_PUBLIC_URL || 'https://example.com';
-  if (command === '/start') {
+const botCommands = {
+  '/start': async (chatId, chatType) => {
     const isPrivate = chatType === 'private';
-    const msg = `🎩 Welcome to Hat Mini App!\n\nCreate and share your hat creations.`;
-    const options = isPrivate ? { reply_markup: { inline_keyboard: [[{ text: '🎨 Open Mini App', web_app: { url: appUrl } }]] } } : {};
+    const appUrl = process.env.WEB_APP_URL || process.env.NEXT_PUBLIC_URL || 'https://example.com';
+    const msg = `🟦 Welcome to Hat Mini App!\n\nCreate and share your hat creations.`;
+    const options = isPrivate
+      ? { reply_markup: { inline_keyboard: [[{ text: '🎨 Open Mini App', web_app: { url: appUrl } }]] } }
+      : { reply_markup: { inline_keyboard: [[{ text: '💬 Start Private Chat', url: `https://t.me/${process.env.BOT_USERNAME || 'YourBot'}` }]] } };
     await sendTelegramMessage(chatId, msg, options);
-  } else if (command === '/help') {
+  },
+  '/help': async (chatId) => {
     const msg = `How to use:\n1) Upload photo\n2) Adjust hat\n3) Share & like in the gallery.`;
     await sendTelegramMessage(chatId, msg);
-  } else if (command === '/leaderboard') {
+  },
+  '/leaderboard': async (chatId) => {
     const images = await db.getAllImages(10, 'likes');
     if (!images.length) return sendTelegramMessage(chatId, 'No creations yet. Be the first!');
     let body = '🏆 Top Creations\n\n';
     images.forEach((im, i) => { body += `${i+1}. ${im.userName || 'Anonymous'} — ❤️ ${im.likes||0}\n`; });
     await sendTelegramMessage(chatId, body);
-  } else if (command === '/stats') {
+  },
+  '/stats': async (chatId) => {
     const all = await db.getAllImages(1000, 'recent');
     const total = all.length; const likes = all.reduce((s,i)=>s+(i.likes||0),0);
     await sendTelegramMessage(chatId, `📊 Stats\nCreations: ${total}\nLikes: ${likes}`);
   }
+};
+
+async function handleBotMessage(message) {
+  const chatId = message.chat.id;
+  const text = (message.text || '').trim();
+  const chatType = message.chat.type; // private | group | supergroup | channel
+  if (!text.startsWith('/')) return;
+
+  const fullCommand = text.split(' ')[0];
+  const parts = fullCommand.split('@');
+  const command = parts[0].toLowerCase();
+  const addressedTo = parts[1];
+  const ourBot = (process.env.BOT_USERNAME || '').toLowerCase();
+
+  let isForUs = true;
+  if (chatType !== 'private') {
+    // In groups, only respond if addressed to the bot
+    isForUs = addressedTo && ourBot && addressedTo.toLowerCase() === ourBot;
+  }
+  if (!isForUs) return;
+
+  const handler = botCommands[command];
+  if (handler) await handler(chatId, chatType);
 }
 
 app.post('/setup-webhook', async (req, res) => {

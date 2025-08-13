@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Community Leaderboard</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root{--base-blue:#0052FF;--border:rgba(0,82,255,.2)}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:#fff;color:#0052FF}
+    .header{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:14px 18px;z-index:10}
+    .logo{display:flex;align-items:center;gap:10px}
+    .logo-img{width:36px;height:36px;border-radius:8px;background:url('../assets/hat.png') center/contain no-repeat}
+    .container{max-width:1100px;margin:0 auto;padding:18px}
+    .title{font-weight:800;font-size:24px;text-align:center;margin:10px 0}
+    .sort{display:flex;gap:10px;justify-content:center;margin:8px 0 18px}
+    .btn{background:#fff;color:var(--base-blue);border:1px solid var(--border);padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:700}
+    .btn.active{background:var(--base-blue);color:#fff}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+    .card{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff}
+    .card img{width:100%;height:200px;object-fit:cover}
+    .meta{display:flex;align-items:center;justify-content:space-between;padding:10px}
+  </style>
+  </head>
+<body>
+  <div class="header">
+    <div class="logo"><div class="logo-img"></div><div>Leaderboard</div></div>
+    <a href="/" style="color:#0052FF;text-decoration:none">← Back to App</a>
+  </div>
+  <div class="container">
+    <div class="title">Community Leaderboard</div>
+    <div class="sort">
+      <button id="btnLikes" class="btn active">❤️ Most Liked</button>
+      <button id="btnRecent" class="btn">⏰ Most Recent</button>
+    </div>
+    <div id="grid" class="grid"></div>
+  </div>
+  <script>
+    const tg = window.Telegram?.WebApp; tg && (tg.ready(), tg.expand());
+    let currentSort = 'likes';
+    async function load(sortBy='likes'){
+      currentSort = sortBy;
+      setActive();
+      const res = await fetch('/api/gallery/images?sortBy='+encodeURIComponent(sortBy)+'&limit=100');
+      const images = await res.json();
+      const grid = document.getElementById('grid');
+      grid.innerHTML='';
+      images.forEach(im=>{
+        const c=document.createElement('div');
+        c.className='card';
+        c.innerHTML=`<img src="/api/gallery/image/${im.id}"/><div class="meta"><div>${im.userName||'Anonymous'}</div><div>❤️ ${im.likes||0}</div></div>`;
+        grid.appendChild(c);
+      });
+    }
+    function setActive(){
+      document.getElementById('btnLikes').classList.toggle('active', currentSort==='likes');
+      document.getElementById('btnRecent').classList.toggle('active', currentSort!=='likes');
+    }
+    document.getElementById('btnLikes').addEventListener('click', ()=> load('likes'));
+    document.getElementById('btnRecent').addEventListener('click', ()=> load('recent'));
+    load();
+  </script>
+</body>
+</html>
+
+
