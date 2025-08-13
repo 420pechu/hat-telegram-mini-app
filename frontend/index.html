@@ -119,7 +119,7 @@
                     <div class="control"><span class="label">Opacity: <span id="opVal">100%</span></span><input id="hatOp" class="slider" type="range" min="0.3" max="1.0" step="0.1" value="1.0"></div>
                     <div class="grid">
                         <button class="btn secondary" id="resetBtn">Reset</button>
-                        <button class="btn" id="downloadBtn">Download</button>
+                        <button class="btn" id="sendDmBtn">📤 Send to DM</button>
                     </div>
                     <button class="btn" id="shareBtn" style="margin-top: 10px;">Share to Gallery</button>
                     <div id="savedNote" class="note">✅ Saved! Shared to gallery.</div>
@@ -400,7 +400,27 @@
             $('fileInput').addEventListener('change', (e) => { if (e.target.files.length) handleFile(e.target.files[0]); });
 
             ['hatSize','hatY','hatX','hatRot','hatOp'].forEach(id => $(id).addEventListener('input', () => { updateSliderLabels(); render(); }));
-            $('downloadBtn').addEventListener('click', downloadHD);
+            $('sendDmBtn').addEventListener('click', async ()=>{
+                if(!original||!hatImg) return;
+                const scale = 1.5;
+                hdCanvas.width = original.width * scale;
+                hdCanvas.height = original.height * scale;
+                hdCtx.drawImage(original, 0, 0, hdCanvas.width, hdCanvas.height);
+                const s = parseFloat($('hatSize').value);
+                const oy = parseInt($('hatY').value);
+                const ox = parseInt($('hatX').value);
+                const rot = parseInt($('hatRot').value);
+                const op = parseFloat($('hatOp').value);
+                const wD = canvas.width * 0.75 * s;
+                const hD = (hatImg.height / hatImg.width) * wD;
+                const xD = (canvas.width/2 - wD/2) + ox;
+                const yD = (canvas.height * 0.08) + oy;
+                const rx = (original.width / canvas.width) * scale;
+                const ry = (original.height / canvas.height) * scale;
+                drawHat(hdCtx, xD * rx, yD * ry, wD * rx, hD * ry, rot, op);
+                const dataUrl = hdCanvas.toDataURL('image/png', 0.95);
+                await window.sendToDM(dataUrl);
+            });
             $('shareBtn').addEventListener('click', shareToGallery);
             $('resetBtn').addEventListener('click', resetAll);
             window.addEventListener('resize', render);

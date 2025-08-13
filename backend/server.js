@@ -290,6 +290,92 @@ app.post('/api/send-to-dm', async (req, res) => {
   }
 });
 
+// Telegram Bot webhook + commands
+async function sendTelegramMessage(chatId, text, options = {}) {
+  try {
+    if (!BOT_TOKEN || BOT_TOKEN === 'YOUR_BOT_TOKEN_HERE') return { success: false, error: 'Bot token not configured' };
+    const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+    const payload = { chat_id: chatId, text, ...options };
+    const fetchRes = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const result = await fetchRes.json();
+    if (!result.ok) throw new Error(result.description || 'Failed to send');
+    return { success: true, result };
+  } catch (e) { return { success: false, error: e.message }; }
+}
+
+async function setupMenuButton() {
+  try {
+    if (!BOT_TOKEN || BOT_TOKEN === 'YOUR_BOT_TOKEN_HERE') return { success: false, error: 'Bot token not configured' };
+    const miniAppUrl = process.env.WEB_APP_URL || process.env.NEXT_PUBLIC_URL || 'https://example.com';
+    const resp = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setChatMenuButton`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ menu_button: { type: 'web_app', text: '🎩 Hat Mini App', web_app: { url: miniAppUrl } } })
+    });
+    const json = await resp.json();
+    return json.ok ? { success: true } : { success: false, error: json.description };
+  } catch (e) { return { success: false, error: e.message }; }
+}
+
+app.post('/webhook/telegram', async (req, res) => {
+  try {
+    const update = req.body;
+    if (update.message) await handleBotMessage(update.message);
+    res.status(200).json({ ok: true });
+  } catch (e) { res.status(500).json({ error: 'Webhook processing failed' }); }
+});
+
+async function handleBotMessage(message) {
+  const chatId = message.chat.id;
+  const text = message.text || '';
+  const chatType = message.chat.type; // private|group|supergroup|channel
+  if (!text.startsWith('/')) return;
+
+  const fullCommand = text.split(' ')[0].toLowerCase();
+  let command = fullCommand;
+  if (fullCommand.includes('@')) command = fullCommand.split('@')[0];
+
+  const appUrl = process.env.WEB_APP_URL || process.env.NEXT_PUBLIC_URL || 'https://example.com';
+  if (command === '/start') {
+    const isPrivate = chatType === 'private';
+    const msg = `🎩 Welcome to Hat Mini App!\n\nCreate and share your hat creations.`;
+    const options = isPrivate ? { reply_markup: { inline_keyboard: [[{ text: '🎨 Open Mini App', web_app: { url: appUrl } }]] } } : {};
+    await sendTelegramMessage(chatId, msg, options);
+  } else if (command === '/help') {
+    const msg = `How to use:\n1) Upload photo\n2) Adjust hat\n3) Share & like in the gallery.`;
+    await sendTelegramMessage(chatId, msg);
+  } else if (command === '/leaderboard') {
+    const images = await db.getAllImages(10, 'likes');
+    if (!images.length) return sendTelegramMessage(chatId, 'No creations yet. Be the first!');
+    let body = '🏆 Top Creations\n\n';
+    images.forEach((im, i) => { body += `${i+1}. ${im.userName || 'Anonymous'} — ❤️ ${im.likes||0}\n`; });
+    await sendTelegramMessage(chatId, body);
+  } else if (command === '/stats') {
+    const all = await db.getAllImages(1000, 'recent');
+    const total = all.length; const likes = all.reduce((s,i)=>s+(i.likes||0),0);
+    await sendTelegramMessage(chatId, `📊 Stats\nCreations: ${total}\nLikes: ${likes}`);
+  }
+}
+
+app.post('/setup-webhook', async (req, res) => {
+  try {
+    if (!BOT_TOKEN || BOT_TOKEN === 'YOUR_BOT_TOKEN_HERE') return res.json({ success: false, error: 'Bot token not configured' });
+    const baseUrl = (req.body && req.body.webhook_url) || process.env.WEB_APP_URL || 'https://example.com';
+    const webhookUrl = `${baseUrl.replace(/\/$/,'')}/webhook/telegram`;
+    const resp = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setWebhook`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: webhookUrl, allowed_updates: ['message','callback_query'] }) });
+    const json = await resp.json();
+    const menu = await setupMenuButton();
+    if (json.ok) return res.json({ success: true, webhook_url: webhookUrl, menu });
+    return res.json({ success: false, error: json.description });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.get('/webhook-info', async (req, res) => {
+  try {
+    if (!BOT_TOKEN || BOT_TOKEN === 'YOUR_BOT_TOKEN_HERE') return res.json({ success: false, error: 'Bot token not configured' });
+    const resp = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getWebhookInfo`);
+    const json = await resp.json();
+    res.json(json);
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
 // 404
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
 
