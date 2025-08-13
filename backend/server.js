@@ -214,7 +214,7 @@ app.post('/api/admin/delete-images', requireAdminAuth, async (req, res) => {
 });
 
 // Telegram DM support
-const BOT_TOKEN = process.env.BOT_TOKEN || 'YOUR_BOT_TOKEN_HERE';
+const BOT_TOKEN = process.env.BOT_TOKEN || '8445586343:AAFmTjWitgY65wxCRUhdPV-Il150GeoECz8';
 
 function validateTelegramAuth(initData) {
   if (!initData) return { valid: false, error: 'No init data' };

@@ -67,6 +67,9 @@
         .item { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; border: 2px solid rgba(255,255,255,0.5); }
         .item .likes { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.7); color: #fff; padding: 4px 8px; border-radius: 10px; font-size: 12px; }
         .note { display: none; margin-top: 14px; text-align: center; color: var(--success); font-weight: 600; }
+        .sort-controls { display:flex; gap:10px; justify-content:center; margin: 10px 0 18px; }
+        .sort-btn { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color:#fff; padding: 8px 12px; border-radius: 10px; cursor: pointer; font-weight:600; }
+        .sort-btn.active { background:#fff; color: var(--base-blue); border-color: rgba(0,0,0,0.08); }
         
         @media (max-width: 920px) { .media-showcase { grid-template-columns: 1fr; } .workspace { grid-template-columns: 1fr; } }
     </style>
@@ -126,6 +129,10 @@
         </div>
 
         <div class="gallery" id="gallery">
+            <div class="sort-controls">
+                <button id="sortLikes" class="sort-btn active">❤️ Most Liked</button>
+                <button id="sortRecent" class="sort-btn">⏰ Most Recent</button>
+            </div>
             <h2 class="section-title">Community Gallery</h2>
             <div class="gallery-grid" id="galleryGrid"></div>
         </div>
@@ -328,6 +335,8 @@
             }catch(e){ alert('❌ Failed to send to DM'); }
         }
 
+        let currentSort = 'likes';
+
         async function loadGallery(sortBy='likes') {
             try {
                 const r = await fetch('/api/gallery/images?sortBy='+encodeURIComponent(sortBy)+'&limit=20');
@@ -336,6 +345,8 @@
                 grid.innerHTML = '';
                 if (Array.isArray(images) && images.length) {
                     show($('gallery'), true);
+                    currentSort = sortBy;
+                    setSortUI(sortBy);
                     images.forEach(im => {
                         const d = document.createElement('div');
                         d.className = 'item';
@@ -357,6 +368,14 @@
                     if(el) el.textContent = j.totalLikes;
                 }
             }catch(err){ /* ignore */ }
+        }
+
+        function setSortUI(sortBy){
+            const likesBtn = document.getElementById('sortLikes');
+            const recentBtn = document.getElementById('sortRecent');
+            if(!likesBtn || !recentBtn) return;
+            likesBtn.classList.toggle('active', sortBy==='likes');
+            recentBtn.classList.toggle('active', sortBy!=='likes');
         }
 
         function resetAll() {
@@ -385,6 +404,11 @@
             $('shareBtn').addEventListener('click', shareToGallery);
             $('resetBtn').addEventListener('click', resetAll);
             window.addEventListener('resize', render);
+
+            const likesBtn = document.getElementById('sortLikes');
+            const recentBtn = document.getElementById('sortRecent');
+            if(likesBtn) likesBtn.addEventListener('click', ()=> loadGallery('likes'));
+            if(recentBtn) recentBtn.addEventListener('click', ()=> loadGallery('recent'));
         }
 
         (async function init(){
