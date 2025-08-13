@@ -343,11 +343,18 @@ const botCommands = {
     await sendTelegramMessage(chatId, msg);
   },
   '/leaderboard': async (chatId) => {
+    const appUrl = process.env.WEB_APP_URL || process.env.NEXT_PUBLIC_URL || 'https://example.com';
     const images = await db.getAllImages(10, 'likes');
-    if (!images.length) return sendTelegramMessage(chatId, 'No creations yet. Be the first!');
+    if (!images.length) {
+      return sendTelegramMessage(chatId, 'No creations yet. Be the first!', {
+        reply_markup: { inline_keyboard: [[{ text: '📊 View Full Leaderboard', web_app: { url: `${appUrl}/leaderboard` } }]] }
+      });
+    }
     let body = '🏆 Top Creations\n\n';
     images.forEach((im, i) => { body += `${i+1}. ${im.userName || 'Anonymous'} — ❤️ ${im.likes||0}\n`; });
-    await sendTelegramMessage(chatId, body);
+    await sendTelegramMessage(chatId, body, {
+      reply_markup: { inline_keyboard: [[{ text: '📊 View Full Leaderboard', web_app: { url: `${appUrl}/leaderboard` } }]] }
+    });
   },
   '/stats': async (chatId) => {
     const all = await db.getAllImages(1000, 'recent');
