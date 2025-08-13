@@ -46,7 +46,7 @@
         .link.x { background-image: url('../assets/X.png'); }
         .hero-media { margin: 12px 0 24px; }
         .hero-media video { width: 100%; height: 340px; object-fit: cover; border-radius: 16px; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
-        .workspace { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+        .workspace { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
         .upload { background: #ffffff; color: #000000; border: 2px dashed var(--base-blue); border-radius: 16px; padding: 28px 18px; text-align: center; cursor: pointer; transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease; box-shadow: 0 6px 18px rgba(0,0,0,0.06); }
         .upload:hover { border-color: var(--base-dark-blue); transform: translateY(-1px); box-shadow: 0 10px 26px rgba(0,0,0,0.1); }
         .upload-icon { width: 58px; height: 58px; margin: 0 auto 12px; background: url('../assets/hat.png') center/contain no-repeat; filter: drop-shadow(0 0 10px rgba(0, 82, 255, 0.35)); }
@@ -111,8 +111,13 @@
                     <div class="upload-sub">Tap to pick or drag an image here</div>
                 </div>
                 <input id="fileInput" type="file" accept="image/*">
+                <div class="canvas-wrap"><canvas id="canvas"></canvas></div>
                 <div class="controls" id="controls">
-                    <div class="control"><span class="label">Size: <span id="sizeVal">100%</span></span><input id="hatSize" class="slider" type="range" min="0.3" max="2.0" step="0.1" value="1.0"></div>
+                    <div class="grid" style="margin-bottom:10px;">
+                        <button class="btn secondary" id="dragModeBtn">🤏 Drag Mode</button>
+                        <button class="btn secondary" id="resetPositionBtn">↺ Reset Position</button>
+                    </div>
+                    <div class="control"><span class="label">Size: <span id="sizeVal">100%</span></span><input id="hatSize" class="slider" type="range" min="0.1" max="3.0" step="0.1" value="1.0"></div>
                     <div class="control"><span class="label">Position Y: <span id="posYVal">0</span></span><input id="hatY" class="slider" type="range" min="-150" max="200" step="5" value="0"></div>
                     <div class="control"><span class="label">Position X: <span id="posXVal">0</span></span><input id="hatX" class="slider" type="range" min="-100" max="100" step="5" value="0"></div>
                     <div class="control"><span class="label">Rotation: <span id="rotVal">0°</span></span><input id="hatRot" class="slider" type="range" min="-45" max="45" step="5" value="0"></div>
@@ -125,7 +130,6 @@
                     <div id="savedNote" class="note">✅ Saved! Shared to gallery.</div>
                 </div>
             </div>
-            <div class="canvas-wrap"><canvas id="canvas"></canvas></div>
         </div>
 
         <div class="gallery" id="gallery">
@@ -148,6 +152,9 @@
         const hdCtx = hdCanvas.getContext('2d');
         let original = null;
         let hatImg = null;
+        let isDragging = false;
+        let dragMode = false;
+        let dragOffset = { x: 0, y: 0 };
 
         const hatSrc = '../assets/hat.png';
         function loadHat() {
@@ -429,6 +436,63 @@
             const recentBtn = document.getElementById('sortRecent');
             if(likesBtn) likesBtn.addEventListener('click', ()=> loadGallery('likes'));
             if(recentBtn) recentBtn.addEventListener('click', ()=> loadGallery('recent'));
+
+            const dragBtn = document.getElementById('dragModeBtn');
+            const resetPosBtn = document.getElementById('resetPositionBtn');
+            if(dragBtn){
+                dragBtn.addEventListener('click', ()=>{
+                    dragMode = !dragMode;
+                    dragBtn.textContent = dragMode ? '✋ Drag ON' : '🤏 Drag Mode';
+                    canvas.style.cursor = dragMode ? 'grab' : 'default';
+                });
+            }
+            if(resetPosBtn){
+                resetPosBtn.addEventListener('click', ()=>{
+                    $('hatX').value = '0';
+                    $('hatY').value = '0';
+                    $('posXVal').textContent = '0';
+                    $('posYVal').textContent = '0';
+                    render();
+                });
+            }
+
+            const getPos = (e)=>{
+                const rect = canvas.getBoundingClientRect();
+                const clientX = e.clientX || (e.touches && e.touches[0]?.clientX) || 0;
+                const clientY = e.clientY || (e.touches && e.touches[0]?.clientY) || 0;
+                return { x: clientX - rect.left, y: clientY - rect.top };
+            };
+            const start = (e)=>{
+                if(!dragMode) return; e.preventDefault(); isDragging = true; canvas.style.cursor = 'grabbing';
+                const pos = getPos(e);
+                // approximate current hat origin
+                dragOffset = pos;
+            };
+            const move = (e)=>{
+                if(!dragMode || !isDragging) return; e.preventDefault();
+                const pos = getPos(e);
+                // Translate delta into slider values
+                const dx = pos.x - dragOffset.x;
+                const dy = pos.y - dragOffset.y;
+                const xSlider = $('hatX');
+                const ySlider = $('hatY');
+                const newX = Math.max(parseInt(xSlider.min), Math.min(parseInt(xSlider.max), parseInt(xSlider.value) + Math.round(dx)));
+                const newY = Math.max(parseInt(ySlider.min), Math.min(parseInt(ySlider.max), parseInt(ySlider.value) + Math.round(dy)));
+                xSlider.value = String(newX);
+                ySlider.value = String(newY);
+                $('posXVal').textContent = String(newX);
+                $('posYVal').textContent = String(newY);
+                dragOffset = pos;
+                render();
+            };
+            const end = ()=>{ if(!dragMode) return; isDragging = false; canvas.style.cursor = dragMode ? 'grab' : 'default'; };
+            canvas.addEventListener('mousedown', start);
+            canvas.addEventListener('mousemove', move);
+            canvas.addEventListener('mouseup', end);
+            canvas.addEventListener('mouseleave', end);
+            canvas.addEventListener('touchstart', start, { passive:false });
+            canvas.addEventListener('touchmove', move, { passive:false });
+            canvas.addEventListener('touchend', end);
         }
 
         (async function init(){
