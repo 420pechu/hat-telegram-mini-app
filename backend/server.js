@@ -6,6 +6,8 @@ const cors = require('cors');
 const helmet = require('helmet');
 const crypto = require('crypto');
 const Database = require('./models/database');
+const https = require('https');
+const { URL } = require('url');
 
 const app = express();
 const PORT = process.env.PORT || 3100;
@@ -208,6 +210,83 @@ app.post('/api/admin/delete-images', requireAdminAuth, async (req, res) => {
     res.json({ success: true, deletedCount, totalRequested: imageIds.length, errors: errors.length ? errors : null });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Telegram DM support
+const BOT_TOKEN = process.env.BOT_TOKEN || 'YOUR_BOT_TOKEN_HERE';
+
+function validateTelegramAuth(initData) {
+  if (!initData) return { valid: false, error: 'No init data' };
+  try {
+    const urlParams = new URLSearchParams(initData);
+    const hash = urlParams.get('hash');
+    urlParams.delete('hash');
+    const userParam = urlParams.get('user');
+    if (!hash || !userParam) return { valid: false, error: 'Invalid auth data' };
+    const user = JSON.parse(decodeURIComponent(userParam));
+    if (!user.id) return { valid: false, error: 'No user id' };
+    return { valid: true, user };
+  } catch (e) {
+    return { valid: false, error: 'Invalid format' };
+  }
+}
+
+async function sendImageToTelegramUser(userId, imageBuffer, caption = 'Your creation!') {
+  if (BOT_TOKEN === 'YOUR_BOT_TOKEN_HERE') return { success: false, error: 'Bot token not configured' };
+  const boundary = '----formdata-' + Math.random().toString(36);
+  const CRLF = '\r\n';
+  let formData = '';
+  formData += '--' + boundary + CRLF + 'Content-Disposition: form-data; name="chat_id"' + CRLF + CRLF + userId + CRLF;
+  formData += '--' + boundary + CRLF + 'Content-Disposition: form-data; name="caption"' + CRLF + CRLF + caption + CRLF;
+  formData += '--' + boundary + CRLF + 'Content-Disposition: form-data; name="photo"; filename="image.png"' + CRLF + 'Content-Type: image/png' + CRLF + CRLF;
+  const formDataBuffer = Buffer.concat([
+    Buffer.from(formData, 'utf8'),
+    imageBuffer,
+    Buffer.from(CRLF + '--' + boundary + '--' + CRLF, 'utf8')
+  ]);
+
+  return new Promise((resolve) => {
+    const url = new URL(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`);
+    const options = {
+      hostname: url.hostname,
+      path: url.pathname,
+      method: 'POST',
+      headers: { 'Content-Type': 'multipart/form-data; boundary=' + boundary, 'Content-Length': formDataBuffer.length }
+    };
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (c) => data += c);
+      res.on('end', () => {
+        try {
+          const result = JSON.parse(data);
+          if (result.ok) resolve({ success: true });
+          else resolve({ success: false, error: result.description || 'Failed' });
+        } catch (e) {
+          resolve({ success: false, error: 'Invalid response from Telegram API' });
+        }
+      });
+    });
+    req.on('error', (err) => resolve({ success: false, error: err.message }));
+    req.write(formDataBuffer);
+    req.end();
+  });
+}
+
+app.post('/api/send-to-dm', async (req, res) => {
+  try {
+    const { userId, imageData, initData } = req.body;
+    const auth = validateTelegramAuth(initData);
+    if (!auth.valid) return res.status(401).json({ error: 'Unauthorized: ' + auth.error });
+    if (String(auth.user.id) !== String(userId)) return res.status(401).json({ error: 'User ID mismatch' });
+    if (!imageData || !imageData.startsWith('data:image/')) return res.status(400).json({ error: 'Invalid image data' });
+    const base64 = imageData.split(',')[1];
+    const buffer = Buffer.from(base64, 'base64');
+    const result = await sendImageToTelegramUser(userId, buffer, 'Your Hat Mini App creation!');
+    if (result.success) return res.json({ success: true });
+    return res.status(500).json({ error: result.error });
+  } catch (e) {
+    return res.status(500).json({ error: 'Failed to send image to DM' });
   }
 });
 

@@ -259,10 +259,23 @@
             const ry = (original.height / canvas.height) * scale;
             drawHat(hdCtx, xD * rx, yD * ry, wD * rx, hD * ry, rot, op);
             hdCanvas.toBlob((blob) => {
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = `hat-${Date.now()}.png`;
-                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                const isTelegramWebView = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.platform;
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                if (isTelegramWebView && isMobile) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const dataUrl = e.target.result;
+                        const html = `<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>Download</title><style>body{margin:0;padding:20px;background:linear-gradient(135deg,#0052FF,#1E6BFF);color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;text-align:center} .box{max-width:90%;margin:0 auto;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(10px);border-radius:16px;padding:24px} img{max-width:100%;height:auto;border-radius:12px;border:2px solid rgba(255,255,255,.3)} .btn{display:inline-block;margin-top:12px;padding:12px 18px;border-radius:10px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.2);color:#fff;text-decoration:none} .btn:hover{background:rgba(255,255,255,.3)}</style></head><body><div class='box'><h3>Your creation</h3><div style='margin:14px 0'><img src='${dataUrl}'/></div><div><button class='btn' onclick='window.opener?.sendToDM && window.opener.sendToDM("${dataUrl}")'>📤 Send to DM</button></div><div style='margin-top:10px'>📱 Long press the image to save</div></div></body></html>`;
+                        const w = window.open('', '_blank');
+                        if (w) { w.document.write(html); w.document.close(); }
+                    };
+                    reader.readAsDataURL(blob);
+                } else {
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `hat-${Date.now()}.png`;
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                }
             }, 'image/png', 0.95);
         }
 
@@ -302,6 +315,17 @@
                     }
                 } catch (e) { alert('Upload failed'); }
             }, 'image/png', 0.9);
+        }
+
+        // Send to DM helper used by the download window
+        window.sendToDM = async function(dataUrl){
+            try{
+                const u = tg?.initDataUnsafe?.user;
+                if(!u){ alert('Open in Telegram'); return; }
+                const res = await fetch('/api/send-to-dm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:u.id,imageData:dataUrl,initData:tg?.initData||''})});
+                const j = await res.json();
+                if(j.success){ alert('✅ Sent to your DM!'); } else { alert('❌ Failed to send to DM'); }
+            }catch(e){ alert('❌ Failed to send to DM'); }
         }
 
         async function loadGallery(sortBy='likes') {
