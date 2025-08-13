@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moderation</title>
+    <style>
+        body{font-family:Segoe UI,Arial,sans-serif;background:linear-gradient(135deg,#0052FF,#1E6BFF);color:#fff;margin:0;min-height:100vh}
+        .header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:rgba(255,255,255,.1);backdrop-filter:blur(8px);border-bottom:1px solid rgba(255,255,255,.2)}
+        .container{max-width:1100px;margin:0 auto;padding:18px}
+        .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+        .card{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:12px;overflow:hidden}
+        .card img{width:100%;height:200px;object-fit:cover}
+        .meta{padding:10px}
+        .row{display:flex;align-items:center;justify-content:space-between}
+        .btn{background:rgba(255,68,68,.85);border:1px solid rgba(255,68,68,.9);color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer}
+        .btn:hover{filter:brightness(1.05)}
+    </style>
+</head>
+<body>
+    <div class="header"><div>🛡️ Moderation</div><a href="/admin" style="color:#fff">Back</a></div>
+    <div class="container">
+        <div id="grid" class="grid"></div>
+    </div>
+    <script>
+        const token = new URLSearchParams(location.search).get('token')||localStorage.getItem('adminToken')||'';
+        if(!token){location.href='/admin/login?redirect='+encodeURIComponent(location.pathname);}
+        async function load(){
+            const res=await fetch('/api/admin/images',{headers:{'X-Admin-Token':token}});
+            const j=await res.json();
+            const grid=document.getElementById('grid');
+            grid.innerHTML='';
+            if(j.success){
+                j.images.forEach(im=>{
+                    const c=document.createElement('div');
+                    c.className='card';
+                    c.innerHTML=`<img src="/api/gallery/image/${im.id}"><div class="meta"><div class="row"><div>❤️ ${im.likes||0}</div><div>${im.userName||'Anonymous'}</div></div><div class="row"><small>${im.createdDate}</small><button class="btn" data-id="${im.id}">Delete</button></div></div>`;
+                    grid.appendChild(c);
+                });
+                grid.querySelectorAll('button.btn').forEach(b=>b.addEventListener('click',()=>del(b.dataset.id)));
+            }
+        }
+        async function del(id){
+            if(!confirm('Delete this image?'))return;
+            const res=await fetch('/api/admin/delete-images',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Token':token},body:JSON.stringify({imageIds:[id]})});
+            const j=await res.json();
+            if(j.success){load();} else {alert('Failed to delete');}
+        }
+        load();
+    </script>
+</body>
+</html>
+
+

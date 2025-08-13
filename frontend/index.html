@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Hat Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --base-blue: #0052FF;
+            --base-dark-blue: #0041CC;
+            --base-light-blue: #1E6BFF;
+            --text-primary: #0052FF;
+            --text-secondary: #0041CC;
+            --background: #ffffff;
+            --surface: #ffffff;
+            --border: rgba(0, 82, 255, 0.2);
+            --gradient-primary: linear-gradient(135deg, #0052FF 0%, #1E6BFF 100%);
+            --shadow-sm: 0 1px 2px 0 rgb(0 82 255 / 0.1);
+            --shadow-md: 0 4px 6px -1px rgb(0 82 255 / 0.1), 0 2px 4px -2px rgb(0 82 255 / 0.05);
+            --shadow-lg: 0 10px 15px -3px rgb(0 82 255 / 0.1), 0 4px 6px -4px rgb(0 82 255 / 0.05);
+            --success: #00FF88;
+        }
+        body { font-family: arial, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--gradient-primary); color: #ffffff; }
+        .header { position: sticky; top: 0; background: linear-gradient(135deg, #0052FF 0%, #1E6BFF 100%); border-bottom: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; z-index: 10; }
+        .logo { display: flex; align-items: center; gap: 10px; }
+        .logo-img { width: 40px; height: 40px; border-radius: 10px; background: url('../assets/hat.png') center/contain no-repeat; filter: drop-shadow(0 0 8px rgba(0, 82, 255, 0.3)); }
+        .logo-text { font-weight: 800; letter-spacing: 0.8px; color: #ffffff; text-transform: uppercase; }
+        .logo-text .part-wif { font-weight: 400; }
+        #userInfo { color: rgba(255,255,255,0.9) !important; }
+        .banner { border-bottom: 1px solid rgba(255,255,255,0.15); overflow: hidden; background: linear-gradient(135deg, #1E6BFF 0%, #0052FF 100%); }
+        .banner-text { white-space: nowrap; padding: 22px 0; font-size: clamp(22px, 6vw, 44px); font-weight: 900; color: #ffffff; animation: scroll 14s linear infinite; text-align: center; }
+        @keyframes scroll { 0% { transform: translateX(100%);} 100% { transform: translateX(-100%);} }
+        .container { max-width: 980px; margin: 0 auto; padding: 18px; position: relative; z-index: 2; }
+        .hero { text-align: center; padding: 24px 0; }
+        .hero-logo { width: 120px; height: 120px; margin: 0 auto 14px; background: url('../assets/hat.png') center/contain no-repeat; filter: drop-shadow(0 0 20px rgba(0, 82, 255, 0.35)); animation: float 4s ease-in-out infinite; }
+        @keyframes float { 0%,100%{ transform: translateY(0);} 50%{ transform: translateY(-6px);} }
+        .hero-title { font-size: 24px; font-weight: 800; color: #ffffff; }
+        .hero-sub { color: rgba(255,255,255,0.9); margin-top: 6px; }
+        .links { display: flex; justify-content: center; gap: 14px; margin: 20px 0 26px; }
+        .link { width: 32px; height: 32px; border-radius: 8px; background: center/contain no-repeat; filter: drop-shadow(0 0 6px rgba(0, 82, 255, 0.3)); transition: transform .2s ease; }
+        .link:hover { transform: translateY(-2px); }
+        .link.dex { background-image: url('../assets/DexScreener.png'); }
+        .link.tg { background-image: url('../assets/Telegram.png'); }
+        .link.x { background-image: url('../assets/X.png'); }
+        .hero-media { margin: 12px 0 24px; }
+        .hero-media video { width: 100%; height: 340px; object-fit: cover; border-radius: 16px; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+        .workspace { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+        .upload { background: #ffffff; color: #000000; border: 2px dashed var(--base-blue); border-radius: 16px; padding: 28px 18px; text-align: center; cursor: pointer; transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease; box-shadow: 0 6px 18px rgba(0,0,0,0.06); }
+        .upload:hover { border-color: var(--base-dark-blue); transform: translateY(-1px); box-shadow: 0 10px 26px rgba(0,0,0,0.1); }
+        .upload-icon { width: 58px; height: 58px; margin: 0 auto 12px; background: url('../assets/hat.png') center/contain no-repeat; filter: drop-shadow(0 0 10px rgba(0, 82, 255, 0.35)); }
+        .upload-sub { color: #666666; font-size: 14px; }
+        input[type=file] { display: none; }
+        .controls { display: none; background: #ffffff; color: #000000; border: 1px solid rgba(0,0,0,0.08); border-radius: 16px; padding: 16px; box-shadow: 0 6px 18px rgba(0,0,0,0.06); }
+        .control { margin-bottom: 12px; }
+        .label { display: block; text-align: center; font-size: 13px; color: #333333; margin-bottom: 6px; }
+        .slider { width: 100%; height: 8px; }
+        .btn { background: var(--base-blue); color: #fff; border: none; padding: 12px 16px; border-radius: 10px; font-weight: 700; width: 100%; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; box-shadow: var(--shadow-sm); }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 10px 25px rgba(0, 82, 255, 0.3); }
+        .btn.secondary { background: #ffffff; color: var(--base-blue); border: 1px solid rgba(0,0,0,0.08); }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .canvas-wrap { text-align: center; display: none; }
+        canvas { max-width: 100%; max-height: 60vh; border-radius: 14px; border: 2px solid rgba(255,255,255,0.5); background: #ffffff; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+        .gallery { display: none; margin-top: 28px; }
+        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+        .item { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; border: 2px solid rgba(255,255,255,0.5); }
+        .item .likes { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.7); color: #fff; padding: 4px 8px; border-radius: 10px; font-size: 12px; }
+        .note { display: none; margin-top: 14px; text-align: center; color: var(--success); font-weight: 600; }
+        
+        @media (max-width: 920px) { .media-showcase { grid-template-columns: 1fr; } .workspace { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+            <div class="logo">
+            <div class="logo-img"></div>
+            <div class="logo-text"><span class="part-base">BASE</span><span class="part-wif">WIF</span><span class="part-hair">HAIR</span></div>
+        </div>
+        <div id="userInfo" style="color: var(--muted); font-size: 14px;">Loading…</div>
+    </div>
+
+    <div class="banner"><div class="banner-text">ADD HATS • SHARE TO GALLERY • LIKE YOUR FAVORITES • ADD HATS • SHARE TO GALLERY</div></div>
+
+    <div class="container">
+        <div class="hero">
+            <div class="hero-title">Put a hat on it!</div>
+            <div class="hero-sub">Upload a photo, adjust the hat, and share.</div>
+            <div class="hero-media">
+                <video src="../assets/HatManVideo.mp4" autoplay muted loop playsinline></video>
+            </div>
+        </div>
+
+        <div class="links">
+            <a class="link dex" href="https://dexscreener.com/base/0x50a01f509d3455632ea906c2e5e7c8f2f836b21d" target="_blank" rel="noopener"></a>
+            <a class="link tg" href="http://t.me/basewifhatportal" target="_blank" rel="noopener"></a>
+            <a class="link x" href="https://x.com/basewifhatt" target="_blank" rel="noopener"></a>
+        </div>
+
+        
+
+        <div class="workspace">
+            <div>
+                <h2 class="section-title">Upload & Add Hat</h2>
+                <div id="uploadArea" class="upload">
+                    <div class="upload-icon"></div>
+                    <div class="upload-title">Choose your photo</div>
+                    <div class="upload-sub">Tap to pick or drag an image here</div>
+                </div>
+                <input id="fileInput" type="file" accept="image/*">
+                <div class="controls" id="controls">
+                    <div class="control"><span class="label">Size: <span id="sizeVal">100%</span></span><input id="hatSize" class="slider" type="range" min="0.3" max="2.0" step="0.1" value="1.0"></div>
+                    <div class="control"><span class="label">Position Y: <span id="posYVal">0</span></span><input id="hatY" class="slider" type="range" min="-150" max="200" step="5" value="0"></div>
+                    <div class="control"><span class="label">Position X: <span id="posXVal">0</span></span><input id="hatX" class="slider" type="range" min="-100" max="100" step="5" value="0"></div>
+                    <div class="control"><span class="label">Rotation: <span id="rotVal">0°</span></span><input id="hatRot" class="slider" type="range" min="-45" max="45" step="5" value="0"></div>
+                    <div class="control"><span class="label">Opacity: <span id="opVal">100%</span></span><input id="hatOp" class="slider" type="range" min="0.3" max="1.0" step="0.1" value="1.0"></div>
+                    <div class="grid">
+                        <button class="btn secondary" id="resetBtn">Reset</button>
+                        <button class="btn" id="downloadBtn">Download</button>
+                    </div>
+                    <button class="btn" id="shareBtn" style="margin-top: 10px;">Share to Gallery</button>
+                    <div id="savedNote" class="note">✅ Saved! Shared to gallery.</div>
+                </div>
+            </div>
+            <div class="canvas-wrap"><canvas id="canvas"></canvas></div>
+        </div>
+
+        <div class="gallery" id="gallery">
+            <h2 class="section-title">Community Gallery</h2>
+            <div class="gallery-grid" id="galleryGrid"></div>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram?.WebApp;
+        tg && (tg.ready(), tg.expand());
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const hdCanvas = document.createElement('canvas');
+        const hdCtx = hdCanvas.getContext('2d');
+        let original = null;
+        let hatImg = null;
+
+        const hatSrc = '../assets/hat.png';
+        function loadHat() {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => resolve(img);
+                img.onerror = () => resolve(null);
+                img.src = hatSrc;
+            });
+        }
+
+        function setUser() {
+            const u = tg?.initDataUnsafe?.user;
+            document.getElementById('userInfo').textContent = u ? `Hi, ${u.first_name || u.username || 'friend'}!` : 'Telegram user';
+        }
+
+        function show(el, flag) { el.style.display = flag ? 'block' : 'none'; }
+        function $(id) { return document.getElementById(id); }
+
+        function updateSliderLabels() {
+            $('sizeVal').textContent = Math.round(parseFloat($('hatSize').value) * 100) + '%';
+            $('posYVal').textContent = $('hatY').value;
+            $('posXVal').textContent = $('hatX').value;
+            $('rotVal').textContent = $('hatRot').value + '°';
+            $('opVal').textContent = Math.round(parseFloat($('hatOp').value) * 100) + '%';
+        }
+
+        function fitCanvasToImage() {
+            const maxWidth = window.innerWidth - 40;
+            const maxHeight = window.innerHeight * 0.6;
+            let { width, height } = original;
+            if (width > maxWidth || height > maxHeight) {
+                const ratio = Math.min(maxWidth / width, maxHeight / height);
+                width *= ratio; height *= ratio;
+            }
+            canvas.width = width; canvas.height = height;
+        }
+
+        function drawHat(ctxDraw, x, y, w, h, rot, op) {
+            ctxDraw.save();
+            ctxDraw.globalAlpha = op;
+            if (rot !== 0) {
+                const cx = x + w/2, cy = y + h/2;
+                ctxDraw.translate(cx, cy);
+                ctxDraw.rotate(rot * Math.PI / 180);
+                ctxDraw.translate(-cx, -cy);
+            }
+            ctxDraw.imageSmoothingEnabled = true;
+            ctxDraw.imageSmoothingQuality = 'high';
+            ctxDraw.drawImage(hatImg, x, y, w, h);
+            ctxDraw.restore();
+        }
+
+        function render() {
+            if (!original || !hatImg) return;
+            fitCanvasToImage();
+            ctx.drawImage(original, 0, 0, canvas.width, canvas.height);
+            const s = parseFloat($('hatSize').value);
+            const oy = parseInt($('hatY').value);
+            const ox = parseInt($('hatX').value);
+            const rot = parseInt($('hatRot').value);
+            const op = parseFloat($('hatOp').value);
+            const w = canvas.width * 0.75 * s;
+            const h = (hatImg.height / hatImg.width) * w;
+            const x = (canvas.width/2 - w/2) + ox;
+            const y = (canvas.height * 0.08) + oy;
+            drawHat(ctx, x, y, w, h, rot, op);
+        }
+
+        function updateSliderRanges() {
+            const xRange = Math.round(canvas.width * 0.8);
+            const yRange = Math.round(canvas.height * 0.8);
+            $('hatX').min = -xRange; $('hatX').max = xRange;
+            $('hatY').min = -yRange; $('hatY').max = yRange;
+        }
+
+        function showControls() {
+            show($('controls'), true);
+            document.querySelector('.canvas-wrap').style.display = 'block';
+            updateSliderLabels();
+        }
+
+        async function handleFile(file) {
+            if (!file || !file.type.startsWith('image/')) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                const img = new Image();
+                img.onload = () => {
+                    original = img;
+                    updateSliderRanges();
+                    showControls();
+                    setTimeout(() => render(), 50);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function downloadHD() {
+            if (!original || !hatImg) return;
+            const scale = 2;
+            hdCanvas.width = original.width * scale;
+            hdCanvas.height = original.height * scale;
+            hdCtx.drawImage(original, 0, 0, hdCanvas.width, hdCanvas.height);
+            const s = parseFloat($('hatSize').value);
+            const oy = parseInt($('hatY').value);
+            const ox = parseInt($('hatX').value);
+            const rot = parseInt($('hatRot').value);
+            const op = parseFloat($('hatOp').value);
+            const wD = canvas.width * 0.75 * s;
+            const hD = (hatImg.height / hatImg.width) * wD;
+            const xD = (canvas.width/2 - wD/2) + ox;
+            const yD = (canvas.height * 0.08) + oy;
+            const rx = (original.width / canvas.width) * scale;
+            const ry = (original.height / canvas.height) * scale;
+            drawHat(hdCtx, xD * rx, yD * ry, wD * rx, hD * ry, rot, op);
+            hdCanvas.toBlob((blob) => {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `hat-${Date.now()}.png`;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            }, 'image/png', 0.95);
+        }
+
+        async function shareToGallery() {
+            if (!original || !hatImg) return;
+            const scale = 1.5;
+            hdCanvas.width = original.width * scale;
+            hdCanvas.height = original.height * scale;
+            hdCtx.drawImage(original, 0, 0, hdCanvas.width, hdCanvas.height);
+            const s = parseFloat($('hatSize').value);
+            const oy = parseInt($('hatY').value);
+            const ox = parseInt($('hatX').value);
+            const rot = parseInt($('hatRot').value);
+            const op = parseFloat($('hatOp').value);
+            const wD = canvas.width * 0.75 * s;
+            const hD = (hatImg.height / hatImg.width) * wD;
+            const xD = (canvas.width/2 - wD/2) + ox;
+            const yD = (canvas.height * 0.08) + oy;
+            const rx = (original.width / canvas.width) * scale;
+            const ry = (original.height / canvas.height) * scale;
+            drawHat(hdCtx, xD * rx, yD * ry, wD * rx, hD * ry, rot, op);
+            hdCanvas.toBlob(async (blob) => {
+                const fd = new FormData();
+                fd.append('image', blob, 'hat-creation.png');
+                const u = tg?.initDataUnsafe?.user;
+                fd.append('userId', u?.id || 'anon');
+                fd.append('userName', u?.first_name || u?.username || 'Anonymous');
+                fd.append('initData', tg?.initData || '');
+                try {
+                    const r = await fetch('/api/gallery/upload', { method: 'POST', body: fd });
+                    const j = await r.json();
+                    if (r.ok && j.success) {
+                        $('savedNote').style.display = 'block';
+                        loadGallery();
+                    } else {
+                        alert(j.error || 'Upload failed');
+                    }
+                } catch (e) { alert('Upload failed'); }
+            }, 'image/png', 0.9);
+        }
+
+        async function loadGallery(sortBy='likes') {
+            try {
+                const r = await fetch('/api/gallery/images?sortBy='+encodeURIComponent(sortBy)+'&limit=20');
+                const images = await r.json();
+                const grid = $('galleryGrid');
+                grid.innerHTML = '';
+                if (Array.isArray(images) && images.length) {
+                    show($('gallery'), true);
+                    images.forEach(im => {
+                        const d = document.createElement('div');
+                        d.className = 'item';
+                        d.innerHTML = `<img src="/api/gallery/image/${im.id}" alt="creation" style="width:100%;height:100%;object-fit:cover;"/><div class=\"likes\">❤️ <span data-like-count=\"${im.id}\">${im.likes||0}</span></div>`;
+                        d.addEventListener('click',()=>toggleLike(im.id));
+                        grid.appendChild(d);
+                    });
+                }
+            } catch(e) { /* ignore */ }
+        }
+
+        async function toggleLike(imageId){
+            try{
+                const u = tg?.initDataUnsafe?.user;
+                const res = await fetch('/api/gallery/like/'+imageId,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId: u?.id || 'anon', initData: tg?.initData || ''})});
+                const j = await res.json();
+                if(j.success){
+                    const el = document.querySelector(`[data-like-count="${imageId}"]`);
+                    if(el) el.textContent = j.totalLikes;
+                }
+            }catch(err){ /* ignore */ }
+        }
+
+        function resetAll() {
+            original = null;
+            $('fileInput').value = '';
+            $('hatSize').value = '1.0';
+            $('hatY').value = '0';
+            $('hatX').value = '0';
+            $('hatRot').value = '0';
+            $('hatOp').value = '1.0';
+            updateSliderLabels();
+            show($('controls'), false);
+            document.querySelector('.canvas-wrap').style.display = 'none';
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            $('savedNote').style.display = 'none';
+        }
+
+        function bindEvents() {
+            $('uploadArea').addEventListener('click', () => $('fileInput').click());
+            $('uploadArea').addEventListener('dragover', (e) => { e.preventDefault(); });
+            $('uploadArea').addEventListener('drop', (e) => { e.preventDefault(); const f = e.dataTransfer.files; if (f.length) handleFile(f[0]); });
+            $('fileInput').addEventListener('change', (e) => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+            ['hatSize','hatY','hatX','hatRot','hatOp'].forEach(id => $(id).addEventListener('input', () => { updateSliderLabels(); render(); }));
+            $('downloadBtn').addEventListener('click', downloadHD);
+            $('shareBtn').addEventListener('click', shareToGallery);
+            $('resetBtn').addEventListener('click', resetAll);
+            window.addEventListener('resize', render);
+        }
+
+        (async function init(){
+            setUser();
+            hatImg = await loadHat();
+            bindEvents();
+            loadGallery();
+        })();
+    </script>
+</body>
+</html>
+
+

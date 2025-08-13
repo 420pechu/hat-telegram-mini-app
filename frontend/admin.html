@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hat Mini App - Admin</title>
+    <style>
+        body{font-family:Segoe UI,Arial,sans-serif;background:linear-gradient(135deg,#0052FF,#1E6BFF);color:#fff;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+        .wrap{background:rgba(255,255,255,.1);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.2);border-radius:16px;padding:28px;max-width:620px;width:100%}
+        h1{margin:0 0 6px 0;font-size:28px}
+        p{margin:0 0 18px 0;color:rgba(255,255,255,.9)}
+        .row{display:flex;gap:10px;margin-top:10px}
+        .btn{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;padding:12px 16px;border-radius:10px;cursor:pointer;flex:1}
+        .btn:hover{background:rgba(255,255,255,.3)}
+        .input{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff}
+        .status{margin-top:14px}
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <h1>🤖 Bot Admin</h1>
+        <p>Manage webhook and open moderation panel.</p>
+        <div class="row">
+            <input class="input" id="webhookUrl" placeholder="https://your-domain.com"/>
+            <button class="btn" onclick="setupWebhook()">Setup Webhook</button>
+        </div>
+        <div class="row">
+            <button class="btn" onclick="getWebhookInfo()">Check Webhook</button>
+            <button class="btn" onclick="openModerationPanel()">Open Moderation</button>
+        </div>
+        <div class="row">
+            <button class="btn" onclick="logout()">Logout</button>
+        </div>
+        <div id="status" class="status"></div>
+    </div>
+    <script>
+        function token(){return localStorage.getItem('adminToken')||new URLSearchParams(location.search).get('token')||''}
+        document.getElementById('webhookUrl').value=location.origin;
+        async function setupWebhook(){
+            const res=await fetch('/setup-webhook',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Token':token()},body:JSON.stringify({webhook_url:document.getElementById('webhookUrl').value.replace(/\/$/,'')})});
+            document.getElementById('status').textContent= (await res.json()).success? '✅ Webhook set' : '❌ Failed';
+        }
+        async function getWebhookInfo(){
+            const res=await fetch('/webhook-info',{headers:{'X-Admin-Token':token()}});
+            document.getElementById('status').textContent=res.ok?'✅ Webhook reachable':'❌ Webhook not configured';
+        }
+        function openModerationPanel(){
+            const t=token(); if(!t){alert('Login first'); return;} location.href='/mod-panel-x7k9m2n8p4q1?token='+t;
+        }
+        async function logout(){await fetch('/admin/logout',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Token':token()},body:JSON.stringify({token:token()})});localStorage.removeItem('adminToken');location.href='/admin/login'}
+    </script>
+</body>
+</html>
+
+
