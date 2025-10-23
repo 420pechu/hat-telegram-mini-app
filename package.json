@@ -6,7 +6,9 @@
     "scripts": {
         "start": "node backend/server.js",
         "dev": "nodemon backend/server.js",
-        "setup": "npm install && node backend/setup.js"
+        "setup": "npm install && node backend/setup.js",
+        "build": "npm rebuild sqlite3",
+        "postinstall": "npm rebuild sqlite3"
     },
     "dependencies": {
         "archiver": "^5.3.1",
